@@ -1,7 +1,82 @@
-name: Test
-on: workflow_dispatch
+name: hdc_engine Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_dim:
+        description: "Max DIM (0 = auto-detect from RAM)"
+        required: false
+        default: "0"
+      max_classes:
+        description: "Max n_classes (0 = auto-detect)"
+        required: false
+        default: "0"
+      max_queries:
+        description: "Max n_queries"
+        required: false
+        default: "500"
+  push:
+    branches:
+      - main
+    paths:
+      - "hdc_engine/**"
+      - ".github/workflows/benchmark.yml"
+      - "ci/**"
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  benchmark:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - run: echo "hello world"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: ci/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ci/requirements.txt
+          python -c "import numpy; print('NumPy', numpy.__version__)"
+
+      - name: Show runner info
+        run: |
+          echo "## Runner info" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- CPU: $(nproc) cores" >> $GITHUB_STEP_SUMMARY
+          echo "- RAM: $(free -h | awk '/^Mem/ {print $2}') total" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          nproc
+          free -h
+          cat /proc/cpuinfo | grep "model name" | head -1
+
+      - name: Run unit tests
+        run: |
+          python -m unittest discover -s hdc_engine/tests -p "test_*.py" -v
+
+      - name: Run benchmark
+        env:
+          INPUT_MAX_DIM: ${{ inputs.max_dim || '0' }}
+          INPUT_MAX_CLASSES: ${{ inputs.max_classes || '0' }}
+          INPUT_MAX_QUERIES: ${{ inputs.max_queries || '500' }}
+        run: |
+          python ci/run_benchmark.py
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmark_results.json
+            benchmark_results.md
+          retention-days: 90
