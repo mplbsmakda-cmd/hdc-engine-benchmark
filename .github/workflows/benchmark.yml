@@ -16,7 +16,8 @@ on:
         required: false
         default: "500"
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "hdc_engine/**"
       - ".github/workflows/benchmark.yml"
@@ -51,15 +52,14 @@ jobs:
         run: |
           echo "## Runner info" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- CPU: \`$(nproc)\` cores" >> $GITHUB_STEP_SUMMARY
-          echo "- RAM: \`$(free -h | awk '/^Mem/ {print $2}')\` total, \`$(free -h | awk '/^Mem/ {print $7}')\` available" >> $GITHUB_STEP_SUMMARY
-          echo "- OS: \`$(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2)\`" >> $GITHUB_STEP_SUMMARY
+          echo "- CPU: $(nproc) cores" >> $GITHUB_STEP_SUMMARY
+          echo "- RAM: $(free -h | awk '/^Mem/ {print $2}') total" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           nproc
           free -h
           cat /proc/cpuinfo | grep "model name" | head -1
 
-      - name: Run unit tests (32 tests)
+      - name: Run unit tests
         run: |
           python -m unittest discover -s hdc_engine/tests -p "test_*.py" -v
 
